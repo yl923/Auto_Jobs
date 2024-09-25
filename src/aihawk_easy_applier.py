@@ -672,40 +672,38 @@ class AIHawkEasyApplier:
             is_numeric = self._is_numeric_field(text_field)
             logger.debug(f"Is the field numeric? {'Yes' if is_numeric else 'No'}")
 
-            existing_answer = None
             question_type = 'numeric' if is_numeric else 'textbox'
 
-            for item in self.all_data:
+            # Check if it's a cover letter field (case-insensitive)
+            is_cover_letter = 'cover letter' in question_text.lower()
 
-                logger.debug(
-                    f"Comparing sanitized stored question: '{self._sanitize_text(item['question'])}' and type: '{item.get('type')}' with current question: '{self._sanitize_text(question_text)}' and type: '{question_type}'")
+            # Look for existing answer if it's not a cover letter field
+            existing_answer = None
+            if not is_cover_letter:
+                for item in self.all_data:
+                    if self._sanitize_text(item['question']) == self._sanitize_text(question_text) and item.get('type') == question_type:
+                        existing_answer = item['answer']
+                        logger.debug(f"Found existing answer: {existing_answer}")
+                        break
 
-                if self._sanitize_text(item['question']) == self._sanitize_text(question_text) and item.get(
-                        'type') == question_type:
-                    existing_answer = item
-                    logger.debug(f"Found existing answer in the data: {existing_answer['answer']}")
-                    break
-
-            if existing_answer:
-                self._enter_text(text_field, existing_answer['answer'])
-                logger.debug("Entered existing answer into the textbox.")
-
-                time.sleep(1)
-                text_field.send_keys(Keys.ARROW_DOWN)
-                text_field.send_keys(Keys.ENTER)
-                logger.debug("Selected first option from the dropdown.")
-                return True
-
-            if is_numeric:
-                answer = self.gpt_answerer.answer_question_numeric(question_text)
-                logger.debug(f"Generated numeric answer: {answer}")
+            if existing_answer and not is_cover_letter:
+                answer = existing_answer
+                logger.debug(f"Using existing answer: {answer}")
             else:
-                answer = self.gpt_answerer.answer_question_textual_wide_range(question_text)
-                logger.debug(f"Generated textual answer: {answer}")
+                if is_numeric:
+                    answer = self.gpt_answerer.answer_question_numeric(question_text)
+                    logger.debug(f"Generated numeric answer: {answer}")
+                else:
+                    answer = self.gpt_answerer.answer_question_textual_wide_range(question_text)
+                    logger.debug(f"Generated textual answer: {answer}")
 
-            self._save_questions_to_json({'type': question_type, 'question': question_text, 'answer': answer})
             self._enter_text(text_field, answer)
-            logger.debug("Entered new answer into the textbox and saved it to JSON.")
+            logger.debug("Entered answer into the textbox.")
+
+            # Save non-cover letter answers
+            if not is_cover_letter:
+                self._save_questions_to_json({'type': question_type, 'question': question_text, 'answer': answer})
+                logger.debug("Saved non-cover letter answer to JSON.")
 
             time.sleep(1)
             text_field.send_keys(Keys.ARROW_DOWN)
