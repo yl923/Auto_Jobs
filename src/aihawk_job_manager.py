@@ -223,10 +223,6 @@ class AIHawkJobManager:
         except NoSuchElementException:
             pass
 
-        job_results = self.driver.find_element(By.CLASS_NAME, "jobs-search-results-list")
-        # utils.scroll_slow(self.driver, job_results)
-        # utils.scroll_slow(self.driver, job_results, step=300, reverse=True)
-
         job_list_elements = self.driver.find_elements(By.CLASS_NAME, 'scaffold-layout__list-container')[
             0].find_elements(By.CLASS_NAME, 'jobs-search-results__list-item')
 
@@ -238,64 +234,7 @@ class AIHawkJobManager:
 
         for job in job_list:
 
-            try:
-                logger.debug(f"Starting applicant count search for job: {job.title} at {job.company}")
-
-                # Find all job insight elements
-                job_insight_elements = self.driver.find_elements(By.CLASS_NAME,
-                                                                 "job-details-jobs-unified-top-card__job-insight")
-                logger.debug(f"Found {len(job_insight_elements)} job insight elements")
-
-                # Initialize applicants_count as None
-                applicants_count = None
-
-                # Iterate over each job insight element to find the one containing the word "applicant"
-                for element in job_insight_elements:
-                    logger.debug(f"Checking element text: {element.text}")
-                    if "applicant" in element.text.lower():
-                        # Found an element containing "applicant"
-                        applicants_text = element.text.strip()
-                        logger.debug(f"Applicants text found: {applicants_text}")
-
-                        # Extract numeric digits from the text (e.g., "70 applicants" -> "70")
-                        applicants_count = ''.join(filter(str.isdigit, applicants_text))
-                        logger.debug(f"Extracted applicants count: {applicants_count}")
-
-                        if applicants_count:
-                            if "over" in applicants_text.lower():
-                                applicants_count = int(applicants_count) + 1  # Handle "over X applicants"
-                                logger.debug(f"Applicants count adjusted for 'over': {applicants_count}")
-                            else:
-                                applicants_count = int(applicants_count)  # Convert the extracted number to an integer
-                        break
-
-                # Check if applicants_count is valid (not None) before performing comparisons
-                if applicants_count is not None:
-                    # Perform the threshold check for applicants count
-                    if applicants_count < self.min_applicants or applicants_count > self.max_applicants:
-                        logger.debug(f"Skipping {job.title} at {job.company}, applicants count: {applicants_count}")
-                        self.write_to_file(job, "skipped_due_to_applicants")
-                        continue  # Skip this job if applicants count is outside the threshold
-                    else:
-                        logger.debug(f"Applicants count {applicants_count} is within the threshold")
-                else:
-                    # If no applicants count was found, log a warning but continue the process
-                    logger.warning(
-                        f"Applicants count not found for {job.title} at {job.company}, continuing with application.")
-            except NoSuchElementException:
-                # Log a warning if the job insight elements are not found, but do not stop the job application process
-                logger.warning(
-                    f"Applicants count elements not found for {job.title} at {job.company}, continuing with application.")
-            except ValueError as e:
-                # Handle errors when parsing the applicants count
-                logger.error(f"Error parsing applicants count for {job.title} at {job.company}: {e}")
-            except Exception as e:
-                # Catch any other exceptions to ensure the process continues
-                logger.error(
-                    f"Unexpected error during applicants count processing for {job.title} at {job.company}: {e}")
-
-            # Continue with the job application process regardless of the applicants count check
-            logger.debug(f"Continuing with job application for {job.title} at {job.company}")
+            logger.debug(f"Starting applicant for job: {job.title} at {job.company}")
 
             if self.is_blacklisted(job.title, job.company, job.link):
                 logger.debug(f"Job blacklisted: {job.title} at {job.company}")
@@ -382,7 +321,9 @@ class AIHawkJobManager:
         logger.debug("Extracting job information from tile")
         job_title, company, job_location, apply_method, link = "", "", "", "", ""
         try:
+            print(job_tile.get_attribute('outerHTML'))
             job_title = job_tile.find_element(By.CLASS_NAME, 'job-card-list__title').find_element(By.TAG_NAME, 'strong').text
+            
             link = job_tile.find_element(By.CLASS_NAME, 'job-card-list__title').get_attribute('href').split('?')[0]
             company = job_tile.find_element(By.CLASS_NAME, 'job-card-container__primary-description').text
             logger.debug(f"Job information extracted: {job_title} at {company}")
